@@ -33,10 +33,11 @@
   var $options  = $('#options-form');
   var $styles   = $('#styles-contents');
   var $editor   = $('#editor-contents');
-  var $preview  = $('#preview-contents').contents();
+  var $preview  = document.getElementById('preview-contents')
   var $tooltips = $('[data-toggle="tooltip"]');
 
   var _options  = null;
+  var _filename = null;
 
 
   var refresh = function () {
@@ -109,9 +110,17 @@
     });
   };
 
-  var injectStyles = function (data) {
-    $preview.find('#styles')
-      .replaceWith('<style id="styles">' + data + '</style>');
+  var injectStyles = function (source) {
+    //$preview.find('#styles')
+    //  .replaceWith('<style id="styles">' + data + '</style>');
+    var data = {
+      filename: _filename,
+      source:  source
+    };
+
+    $.post('/updateCSS', data)
+      .done(onTransformSuccess)
+      .fail(onTransformError);
   };
 
   var saveStyles = function (data) {
@@ -139,8 +148,8 @@
   // Ajax callbacks.
 
   var onTransformSuccess = function (html) {
-    $preview.find('body')
-      .html(html);
+    /*$preview.find('body')
+      .html("<div id='mathjax'>"+html+"</div>");
 
     $preview.find('a')
       .click(function (evt) {
@@ -149,6 +158,9 @@
 
     $preview.find('title')
       .text($preview.find('h1:first').text());
+*/
+    
+    $preview.src = "temp-files/" + _filename + ".html"
   };
 
   var onTransformError = function (err) {
@@ -177,6 +189,9 @@
 
   var onSaveHtmlClick = function (evt) {
     evt.preventDefault();
+    
+    alert("Not supported.")
+    return;
 
     var preview = $preview.find('html').get(0).outerHTML;
     saveData(preview, 'index.html');
@@ -200,6 +215,7 @@
     saveEditor(editor);
 
     var data = {
+      filename: _filename,
       options: _options,
       source:  editor
     };
@@ -210,6 +226,11 @@
   };
 
   // Initializers.
+
+  var initializeFilename = function() {
+    var stamp = moment().format("YYYY-MM-DD+HH:mm:ss");
+    _filename = /*stamp + "+" +*/ Math.random().toString(36).substring(7);
+  }
 
   var initializeOpenMd = function () {
     $openMd
@@ -245,6 +266,8 @@
       .on('input', _.debounce(onStylesInput, 500))
       .val(styles)
       .trigger('input');
+    
+    injectStyles(styles)
   };
 
   var initializeEditor = function () {
@@ -257,14 +280,17 @@
   };
 
   var initializePreview = function () {
-    $preview.find('head')
-      .append('<meta charset="utf-8"/>')
-      .append('<meta content="width=device-width, initial-scale=1.0" name="viewport"/>')
-      .append('<title/>')
-      .append('<style id="normalize"/>')
-      .append('<style id="styles"/>');
+    var editor = $editor.val();
 
-    injectNormalize();
+    var data = {
+      filename: _filename,
+      options: _options,
+      source:  editor
+    };
+
+    $.post('/transform', data)
+      .done(onTransformSuccess)
+      .fail(onTransformError);
   };
 
   var initializeTooltips = function () {
@@ -273,6 +299,7 @@
 
   // Start the fun.
 
+  initializeFilename();
   initializeOpenMd();
   initializeSaveMd();
   initializeSaveHtml();
